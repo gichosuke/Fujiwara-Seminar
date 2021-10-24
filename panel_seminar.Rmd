@@ -1,6 +1,6 @@
 ---
 title: "パネルの補足等"
-author: "Kosuke Arai (kokzai.karai@gmail.com)"
+author: "TBA"
 date: "2021/10/24"
 output: 
   html_document:
@@ -50,7 +50,7 @@ windows10のエクスプローラーではPC本体にデータが入っている
 
 ```{r data}
 library(readxl)
-dat <- read_excel("/Users/KosukeA/Documents/R/BAD_ASSETSNEW.xls", 
+dat <- read_excel("/R/BAD_ASSETSNEW.xls", 
                   sheet = "Sheet1")
 head(dat)
 ```
