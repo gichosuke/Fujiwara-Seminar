@@ -1,0 +1,143 @@
+---
+title: "パネルの補足等"
+author: "Kosuke Arai (kokzai.karai@gmail.com)"
+date: "2021/10/24"
+output: 
+  html_document:
+   toc: true
+   toc_depth : 1
+   toc_float : true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,message = F,warning = F)
+```
+
+&ensp;
+
+# はじめに
+
+前回講義のフォローアップとして、文字化け回避のためにHTMLで書いています。  
+それでもwindowsの方は文字化けするかも知れません、エンコーディングはUTF-8になっているはずです。  
+
+&ensp;
+
+# Onedrive問題
+
+windows10ではデフォルトで種々の保存先がOnedriveになっているようです。これによる弊害が大きく二つあります。  
+
+### 1.データがOnedriveに保存されてしまう
+ 
+windows10のエクスプローラーではPC本体にデータが入っているように見えますが、実際はOnedriveに保存されたデータをリアルタイムで表示してくれているだけなので
+、RStudioやその他ソフトウェアを通してファイル一覧を見たときにデータが表示されなくなります。  
+ファイルパスに Onedrive や Dropbox 等が含まれている場合はPCにデータが保存されていない可能性があるので、そういった文字を含まないフォルダにファイルを移動してください。
+
+### 2.RやRStudioがOnedriveに保存されてしまう
+
+目下、パッケージをインストールできない原因の最有力候補です。ファイルの場合と同様に、パッケージ含むRに関連する様々なデータがPC上には存在しないことになるうえに、インストールしたパッケージを保存する先がPCではなくOnedriveになってしまうので、保存の権限をRが持っていない場合はエラーが出るかと思います。
+ 
+
+&#9654;	read.csvやinstall.packagesを使ったり設定を頑張れば対処できる可能性はありそうですが、利便性がかなり落ちるので、Rを今後も使うのであれば
+<a href="http://ryotamugiyama.com/2020/08/03/rinstall/">RとRStudioをインストールするときのつまづきポイントとその対処法へのリンク</a>
+辺りを参考にして対処した方が良いかと思います。  
+
+&ensp;
+
+# ggplot 
+
+質問があったので本当に少しだけ。
+まずはデータの読み込み
+
+```{r data}
+library(readxl)
+dat <- read_excel("/Users/KosukeA/Documents/R/BAD_ASSETSNEW.xls", 
+                  sheet = "Sheet1")
+head(dat)
+```
+
+ggplotの基本的な形は以下です。散布図ならgeom_point、折れ線グラフならgeom_line、棒グラフならgeom_bar...を使います。
+```{r plot,eval=F}
+ggplot(data)+
+  aes(x=X,y=Y)+
+  geom_point()
+```
+今回のデータについて単純に散布図を描くと
+```{r plot2,warning=F,message=F}
+library(tidyverse)
+ggplot(dat)+
+  aes(x=log(YOKIN),y=log(BADLOAN))+
+  geom_point()
+```
+
+銀行ごとに色分けしたいので、aes()に新しくcolorという項目を入れて、点の色がどの変数に依存するかを指定します。
+```{r plot3,warning=F}
+ggplot(dat)+
+  aes(x=log(YOKIN),y=log(BADLOAN),color=BANK)+
+  geom_point()
+```
+
+同じ点として全て扱うか、色が異なる点の集合として扱うかが、普通の回帰分析等とパネル分析の差です。  
+なお、ここではBANKという変数が数値として扱われているので、グラデーションがついています。銀行名など数値ではない変数でもグループ分けはできるので、その場合のイメージだけ描いてみます。なお、銀行が多すぎるので10個に絞って、as.factorという関数でfactor型のデータとして扱っています。コードはそんなに気にしないでください。
+```{r plot4,warning=F}
+dat %>% filter(BANK%in%unique(dat$BANK)[1:10]) %>% 
+ggplot()+
+  aes(x=log(YOKIN),y=log(BADLOAN),color=as.factor(BANK))+
+  geom_point()
+```
+
+線を二種類引いてみます。一つは全ての点で回帰した直線。もう一つは銀行ごとに回帰した直線です。後者には色がついています。
+```{r plot5,warning=F}
+dat %>% filter(BANK%in%unique(dat$BANK)[1:10]) %>% 
+ggplot()+
+  aes(x=log(YOKIN),y=log(BADLOAN))+
+  stat_smooth(method = "lm",se=F,color="black")+
+  geom_point(aes(color=as.factor(BANK)))+
+  stat_smooth(aes(color=as.factor(BANK)),method = "lm",se=F)
+```
+
+この色付き線の傾きが共通だとしたらどのくらいなんだろう？って話がパネル分析の固定効果モデルでした。
+
+&ensp;
+
+# Masked Objects
+
+library()でパッケージを呼び出した際に、オブジェクトがマスクされている、みたいなメッセージが出ることがあります。
+```{r masked,message=T,warning=T}
+library(plm)
+```
+
+何を言っているんだって感じですが、これはパッケージに含まれる関数等の名前が、他のパッケージの内容物と被っているという意味です。  
+今回だとplmのbetween,lag,lead関数がdeplyrのbetween,lag,lead関数と被っています。  
+この場合、単純にlagと入力した際には、後からlibrary()で呼び出したplmパッケージのlag関数が使用されます。
+<details> <summary>厳密にはちょっと違いますが。詳細な説明はクリックで展開できます </summary>
+&ensp;
+
+厳密にはlibrary()でまだ呼び出していない状態から、library()で呼び出した際に優先順位が一番上に来ます。優先順位の確認は
+```{r}
+search()
+```
+で確認でき、先頭に近いパッケージほど優先的に使用されます。今この状態でlibrary(dplyr)をやっても、
+```{r}
+library(dplyr)
+search()
+```
+となり、dplyrの優先順位が上がっていないことがわかります。  
+これはneedsというパッケージのprioritize関数を使ったり、
+```{r}
+detach("package:dplyr")
+library(dplyr)
+```
+でなんとかできます。
+```{r}
+search()
+```
+dplyrが上に来ましたね。.GlobalEnvは最強なので気にしないでください。
+</details>
+&ensp;
+
+じゃあ確実にplmのlag関数を使うにはどうしたら良いのか、という話になります。これはlag関数の前に**plm::**を付ければ良いです。plmというパッケージの〇〇関数といった意味になります。dplyrのlag関数を使う場合はdplyr::lagです。  
+余談ですが、libraryで呼び出さなくても*パッケージ::関数*の書き方なら関数を使えます。一度しか使わない際などには便利です。  
+
+&ensp;
+&ensp;
+
